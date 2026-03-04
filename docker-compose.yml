@@ -1,0 +1,83 @@
+services:
+  # ---------- Databases ----------
+  user-db:
+    image: postgres:15
+    container_name: user-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: userdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+      - ./services/user-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+
+  # question-db:
+  #   image: postgres:15
+  #   container_name: question-db
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: secret
+  #     POSTGRES_DB: questiondb
+  #   ports:
+  #     - "5433:5432"
+  #   volumes:
+  #     - question-db-data:/var/lib/postgresql/data
+  #     - ./services/question-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+  #   networks:
+  #     - app-network
+
+  # ---------- Backends ----------
+  user-service:
+    build: ./services/user-service
+    container_name: user-service
+    depends_on:
+      - user-db
+    environment:
+      DATABASE_URL: postgres://postgres:secret@user-db:5432/userdb
+      JWT_SECRET: supersecretjwtkey
+      EMAIL_PEPPER: secretpepper
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+
+  # question-service:
+  #   build: ./services/question-service
+  #   container_name: question-service
+  #   depends_on:
+  #     - question-db
+  #   environment:
+  #     DATABASE_URL: postgres://postgres:secret@question-db:5432/questiondb
+  #     PORT: 3000
+  #   ports:
+  #     - "3001:3000"
+  #   networks:
+  #     - app-network
+
+  # ---------- Frontend ----------
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    depends_on:
+      - user-service
+      # - question-service
+    environment:
+      VITE_USER_SERVICE_URL: http://user-service:3000
+      # VITE_QUESTION_SERVICE_URL: http://question-service:3001
+    ports:
+      - "5173:5173"
+    networks:
+      - app-network
+
+volumes:
+  user-db-data:
+  question-db-data:
+
+networks:
+    app-network:
+      driver: bridge

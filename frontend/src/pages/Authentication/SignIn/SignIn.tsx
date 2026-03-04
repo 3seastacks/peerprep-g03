@@ -34,20 +34,40 @@ export default function SignIn() {
 
     const handleSignInClick = async() => {
 
-        const response = await getUserProfile(formData.username, formData.password)
+        // Using backend
+        // const response = await getUserProfile(formData.username, formData.password)
 
-        if (response.status != "200") {
-            // put error message
+        // if (response.status != "200") {
+        //     // put error message
+        // }
+        const response = await fetch('http://localhost:3000/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: formData.username,
+                password: formData.password,
+            }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // save jwt token
+            localStorage.setItem('JWToken', data.token);
+
+            dispatch(
+                initialise({
+                    username: response.username,
+                    role: response.role,
+                    email: response.email,
+                    proficiency: response.proficiency,
+                    JWToken: response.JWToken
+                }))
+        } else {
+            // Error message
         }
-
-        dispatch(
-            initialise({
-                username: response.username,
-                role: response.role,
-                email: response.email,
-                proficiency: response.proficiency,
-                JWToken: response.JWToken
-            }))
 
         const isAdmin = response.role == "Admin"
         if (isAdmin) {

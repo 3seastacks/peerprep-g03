@@ -8,12 +8,36 @@ export default function CreateAccount() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({username: '', email: '', password: '', confirmPassword: ''});
     const [hasTouched, setHasTouched] = useState({username: false, email: false, password: false, confirmPassword: false});
+    const [backendError, setBackendError] = useState(""); // To capture backend error
     const isFormIncomplete = !formData.username || !formData.email || !formData.password || !formData.confirmPassword;
 
     const handleCreateAccountClick = async () => {
+        /** Using connection to backend
         await createUserProfile(formData.username, formData.password, formData.email)
         navigate('/');
-    };
+        */
+        const response = await fetch('http://localhost:3000/auth/register', {
+            method: 'POST',
+            headers: {
+            'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+            username: formData.username,
+            email: formData.email,
+            password: formData.password,
+            }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // On successful account creation, navigate to sign-in page
+            navigate('/sign-in');
+        } else {
+            // Handle error (show error message)
+            setBackendError(data.error || "Something went wrong");
+        }
+        };
 
     const handleChange = (id, value) => {
         setFormData(prev => ({ ...prev, [id]: value }));
@@ -58,6 +82,9 @@ export default function CreateAccount() {
                         value={formData.confirmPassword}
                         onChange={(e) => handleChange('confirmPassword', e.target.value)} />
                     <ErrorMessage text = {allErrorMessage()} />
+                    {/* To show backend errors */}
+                    {backendError && <div className="error-message">{backendError}</div>}
+
                     <div className="flex justify-center p-4">
                         <Button label = "Create Account" onClick = {handleCreateAccountClick} disabled = {allErrorMessage() != "" || isFormIncomplete }/>
                     </div>
