@@ -1,4 +1,4 @@
-const { Pool } = require("pg"); // Use Pool instead of Client
+const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 
@@ -13,7 +13,7 @@ function hashEmail(email) {
 }
 
 // Create a user and store in the database
-async function createUser(username, password, email, role = "user") {
+async function createUser(username, password, email, role = "User") {
   const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
   const hashedEmail = hashEmail(email);
   const usernameLower = username.toLowerCase();

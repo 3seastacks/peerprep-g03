@@ -13,6 +13,7 @@ export default function SignIn() {
     const [formData, setFormData] = useState({username: '', password: ''});
     const [hasTouched, setHasTouched] = useState({username: false, password: false});
     const isFormIncomplete = !formData.username || !formData.password;
+    const [backendError, setBackendError] = useState("");
 
     const handleChange = (id, value) => {
         setFormData(prev => ({ ...prev, [id]: value }));
@@ -33,41 +34,24 @@ export default function SignIn() {
     };
 
     const handleSignInClick = async() => {
-
-        // Using backend
-        // const response = await getUserProfile(formData.username, formData.password)
-
-        // if (response.status != "200") {
-        //     // put error message
-        // }
-        const response = await fetch('http://localhost:3000/auth/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                username: formData.username,
-                password: formData.password,
-            }),
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            // save jwt token
-            localStorage.setItem('JWToken', data.token);
-
-            dispatch(
-                initialise({
-                    username: response.username,
-                    role: response.role,
-                    email: response.email,
-                    proficiency: response.proficiency,
-                    JWToken: response.JWToken
-                }))
-        } else {
-            // Error message
+        const response = await getUserProfile(formData.username, formData.password)
+        setBackendError(" ");
+        if (!response.JWToken) {
+            // put error message
+            setBackendError(response.error || "Login failed");
+            return;
         }
+
+        localStorage.setItem("JWToken", response.JWToken);
+
+        dispatch(
+            initialise({
+                username: response.username,
+                role: response.role,
+                email: response.email,
+                proficiency: response.proficiency,
+                JWToken: response.JWToken
+            }))
 
         const isAdmin = response.role == "Admin"
         if (isAdmin) {
@@ -76,6 +60,12 @@ export default function SignIn() {
         else {
             navigate('/start');
         }
+        const data = await response.json();
+
+        // DEBUG LOGGING
+        console.log("Raw fetch response:", response);
+        console.log("Parsed data:", data);
+        console.log("Role from backend:", data.role);
     };
 
     return (
@@ -86,6 +76,7 @@ export default function SignIn() {
                 <TextField id = "username" label = "Username" value={formData.username} onChange={(e) => handleChange('username', e.target.value)}/>
                 <TextField id = "password" label = "Password" secret = {true} value={formData.password} onChange={(e) => handleChange('password', e.target.value)}/>
                 <ErrorMessage text = {allErrorMessage()} />
+                {backendError && <ErrorMessage text={backendError} />}
                 <div className="flex justify-center p-4 gap-x-15">
                     <Button label = "Sign In" onClick = {handleSignInClick} disabled = {allErrorMessage() != "" || isFormIncomplete }/>
                     <Button label = "Create Account" onClick = {handleCreateAccountClick}/>

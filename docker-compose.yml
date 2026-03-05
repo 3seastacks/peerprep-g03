@@ -7,8 +7,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: secret
       POSTGRES_DB: userdb
-    ports:
-      - "5432:5432"
     volumes:
       - user-db-data:/var/lib/postgresql/data
       - ./services/user-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
