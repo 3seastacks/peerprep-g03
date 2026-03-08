@@ -12,7 +12,7 @@ export default function QuestionForm() {
     const dispatch = useDispatch();
     const { questionId } = useParams(); // Get ID from URL to check if Editing
 
-    const { value, stateStatus } = useSelector((state) => state.question);
+    const { value, stateStatus, serverError } = useSelector((state: any) => state.question);
     const [formData, setFormData] = useState({
         questionTitle: '',
         questionTopic: '',
@@ -72,15 +72,15 @@ export default function QuestionForm() {
         solution: formData.solution
     };
 
+    let result;
     if (isEditMode) {
-        // Wait for the update to actually finish
-        const result = await dispatch(updateExistingQuestion(payload));
-        if (updateExistingQuestion.fulfilled.match(result)) {
-            dispatch(reset());
-            navigate('/question/');
-        }
+        result = await dispatch(updateExistingQuestion(payload));
     } else {
-        await dispatch(createNewQuestion(payload));
+        result = await dispatch(createNewQuestion(payload));
+    }
+
+    // Only move if there's no duplicate error
+    if (updateExistingQuestion.fulfilled.match(result) || createNewQuestion.fulfilled.match(result)) {
         dispatch(reset());
         navigate('/question/');
     }
@@ -92,8 +92,11 @@ export default function QuestionForm() {
         if (hasTouched.questionTitle) msg += getBlankFieldError("Question title", formData.questionTitle);
         if (hasTouched.question) msg += getBlankFieldError("Question", formData.question);
         if (hasTouched.solution) msg += getBlankFieldError("Solution", formData.solution);
+        if (serverError) {
+            msg += (msg ? " | " : "") + "Duplicate title. Please choose other title.";
+        }
         return msg;
-    }, [formData, hasTouched]);
+    }, [formData, hasTouched, serverError]);
 
     // Show loading only if we are actively fetching for an Edit mode 
     if (isEditMode && (stateStatus === 'loading' || !value || !isLoaded)) {
@@ -112,6 +115,9 @@ export default function QuestionForm() {
     const handleChange = (id, value) => {
         setFormData(prev => ({ ...prev, [id]: value }));
         setHasTouched(prev => ({ ...prev, [id]: true }));
+        if (id === 'questionTitle' && serverError) {
+            dispatch(reset()); // This clears state.serverError in Redux
+        }
     };
 
     return (

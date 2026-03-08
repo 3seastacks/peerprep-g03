@@ -22,6 +22,10 @@ const QuestionController = {
       
       res.status(201).json(newQuestion);
     } catch (error) {
+      if (error.code === 'DUPLICATE_TITLE') {
+            // 409 Conflict is the standard status for duplicates
+            return res.status(409).json({ error: "Duplicate title" });
+        }
       res.status(500).json({ error: error.message });
     }
   },
@@ -70,6 +74,10 @@ updateQuestion: async (req, res) => {
     if (!updatedQuestion) return res.status(404).json({ message: "Question not found" });
     res.status(200).json(updatedQuestion);
   } catch (error) {
+    if (error.code === 'DUPLICATE_TITLE') {
+            // 409 Conflict is the standard status for duplicates
+            return res.status(409).json({ error: "Duplicate title" });
+        }
     res.status(500).json({ error: error.message });
   }
 },

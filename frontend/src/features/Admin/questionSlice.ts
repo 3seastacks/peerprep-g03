@@ -79,7 +79,8 @@ export const deleteExistingQuestion = createAsyncThunk(
 const initialState = { 
     value: initialStateValue, 
     list: [], // This is where the table data lives
-    stateStatus: 'idle'
+    stateStatus: 'idle',
+    serverError: null
 };
 const questionSlice = createSlice({
   name: 'question',
@@ -88,13 +89,22 @@ const questionSlice = createSlice({
     initialise: (state, action) => {
         state.value = action.payload; // Manual initialise from the form
     },
-    reset: (state) => {state.value = initialStateValue}
+    reset: (state) => {
+        state.value = initialStateValue;
+        state.serverError = null; // Important: Clear the error here
+        state.stateStatus = 'idle';
+    }
   },
   extraReducers: (builder) => {
       builder
     .addCase(createNewQuestion.fulfilled, (state) => {
     state.stateStatus = 'succeeded';
     // Logic to clear form or redirect can go here
+    })
+    .addCase(createNewQuestion.rejected, (state, action: any) => {
+    state.stateStatus = 'failed';
+    // Capture the "Duplicate title..." string from backend
+    state.serverError = action.payload?.error || action.payload || "Create failed";
     })
     .addCase(updateExistingQuestion.pending, (state) => {
               state.stateStatus = 'loading';
@@ -112,9 +122,11 @@ const questionSlice = createSlice({
                   }
               }
           })
-    .addCase(updateExistingQuestion.rejected, (state) => {
-              state.stateStatus = 'failed';
-          })
+    .addCase(updateExistingQuestion.rejected, (state, action: any) => {
+        state.stateStatus = 'failed';
+        // Capture the "Duplicate title..." string from backend
+        state.serverError = action.payload?.error || action.payload || "Update failed";
+    })
     .addCase(fetchQuestionDetail.pending, (state) => {
           state.stateStatus = 'loading';
       })

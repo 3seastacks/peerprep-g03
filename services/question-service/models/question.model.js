@@ -1,12 +1,28 @@
 const { Pool } = require("pg");
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+async function checkDuplicateTitle(title, excludeId = null) {
+    let query = `SELECT * FROM questions WHERE title = $1 AND is_deleted = FALSE`;
+    const params = [title];
 
+    if (excludeId) {
+        query += ` AND id != $2`;
+        params.push(excludeId);
+    }
+
+    const res = await pool.query(query, params);
+    return res.rows.length > 0;
+}
 
 // Create a new question
 async function createQuestion(title, topic, difficulty, description, solution) {
   const topicArray = Array.isArray(topic) ? topic : [topic];
-
+  const isDuplicate = await checkDuplicateTitle(title);
+  if (isDuplicate) {
+        const error = new Error("Duplicate title found");
+        error.code = 'DUPLICATE_TITLE';
+        throw error;
+    }
   const res = await pool.query(
     `INSERT INTO questions (title, description, difficulty, topic_tags, solution) 
      VALUES ($1, $2, $3, $4, $5) 
@@ -36,6 +52,12 @@ async function getQuestionById(id) {
 
 // Update an existing question
 async function updateQuestion(id, title, topic, difficulty, description, solution) {
+  const isDuplicate = await checkDuplicateTitle(title, id);
+  if (isDuplicate) {
+        const error = new Error("Duplicate title found");
+        error.code = 'DUPLICATE_TITLE';
+        throw error;
+    }
   const res = await pool.query(
     `UPDATE questions 
      SET 
