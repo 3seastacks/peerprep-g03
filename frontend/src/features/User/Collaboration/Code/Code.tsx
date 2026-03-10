@@ -6,16 +6,26 @@ import { useSelector, useDispatch } from 'react-redux';
 import { reset } from '../../../../features/User/Collaboration/collaborationSlice';
 import { postAttempt } from '../../../../services/Attempts'
 
+import { useState, useRef } from 'react'
+import Editor from "@monaco-editor/react"
+import * as Y from "yjs"
+import { MonacoBinding } from "y-monaco"
+
 export function Code() {
+    type RootState = {
+    collaboration: any
+    authentication: any
+    }
+
     const {
         value: collabValue,
         stateStatus: collabStatus
-    } = useSelector((state) => state.collaboration);
+    } = useSelector((state: RootState) => state.collaboration);
 
     const {
         value: authValue,
         stateStatus: authStatus
-    } = useSelector((state) => state.authentication);
+    } = useSelector((state: RootState) => state.authentication);
 
     const partner: string = collabValue.partner
 
@@ -39,14 +49,50 @@ export function Code() {
         navigate('/start');
     };
 
+    const editorRef = useRef(null);
+
+    function handleEditorDidMount(editor, monaco) {
+        editorRef.current = editor;
+        console.log(editorRef.current); // should log the editor instance
+        // Initialize YJS
+        const doc = new Y.Doc(); // a collection of shared objects -> Text
+        // Connect to peers (or start connection) with WebRTC
+        const type = doc.getText("monaco"); // doc { "monaco": "what our IDE is showing" }
+        // Bind YJS to Monaco 
+        const binding = new MonacoBinding(type, editorRef.current.getModel(), new Set([editorRef.current]));
+    }
+
     return (
-        <div class="flex flex-col justify-center p-2 py-4">
+        <div className="flex flex-col h-screen p-2 py-4">
             <p style={{ color: darkBlue }} className= "text-right"> {message} </p>
-            <MuiTextField multiline rows = {15}/>
-            <div class="flex justify-end py-5 gap-x-10">
+            <div className="rounded-lg overflow-hidden order border-black border-1">
+                <Editor
+                    height="350px"
+                    theme="vs"
+                    onMount={handleEditorDidMount}
+                    options={{
+                        automaticLayout: true,
+                        lineNumbersMinChars: 2,
+                        lineDecorationsWidth: 0,
+                    }}
+                />
+            </div>
+            
+            <div className="flex justify-end py-5 gap-x-10">
                 <Button label = "Quit" onClick = {handleQuitClick}/>
                 <Button label = "Submit" onClick = {handleSubmitClick}/>
             </div>
             </div>
     );
 }
+
+//           <MuiTextField multiline rows = {15}/>
+/*
+<div className="flex-1 max-h-[60vh] mb-2">
+                <Editor
+                    theme="vs-dark"
+                    onMount={handleEditorDidMount}
+                    className="h-full w-full"
+                    />
+            </div>
+            */
