@@ -1,27 +1,21 @@
 import { useNavigate } from 'react-router-dom';
 import { Table, TableProp } from '../../../components'
 import { QuestionRecords } from '../../../models'
+import { mockMultipleQuestionRecords } from '../../../mocks/data'
+import { useDispatch } from 'react-redux';
+import { fetchQuestionDetail } from '../questionSlice';
 
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchQuestionDetail, fetchAllQuestions, deleteExistingQuestion } from '../questionSlice';
-import { useEffect } from 'react';
-const questionRecordsCols: { id: string; label: string; minWidth?: number; hidden?: boolean }[] = [
+const questionRecordsCols: { id: keyof QuestionRecords; label: string; minWidth?: number; hidden?:boolean }[] = [
     { id: 'id', label: 'ID', hidden: true },
-    { id: 'title', label: 'Title', minWidth: 100 }, 
-    { id: 'topic_tags', label: 'Topic', minWidth: 150 },
-    { id: 'difficulty', label: 'Difficulty', minWidth: 100 },
+    { id: 'questionTitle', label: 'Title', minWidth: 100},
+    { id: 'questionTopic', label: 'Topic', minWidth: 150 },
+    { id: 'questionDifficulty', label: 'Difficulty', minWidth: 100},
 ];
 
 export function QuestionRecordsTable() {
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
-    const questions = useSelector((state: any) => state.question.list as QuestionRecords[]);
-    const status = useSelector((state: any) => state.question.stateStatus);
-    useEffect(() => {
- 
-        dispatch(fetchAllQuestions("admin_user")); 
-    }, [dispatch]);
     const handleViewClick = (x:string) => {
         dispatch(fetchQuestionDetail(x))
         navigate(`/question/view/${x}`);
@@ -31,25 +25,18 @@ export function QuestionRecordsTable() {
         dispatch(fetchQuestionDetail(x))
         navigate(`/question/edit/${x}`);
     };
-    const handleDeleteClick = async (id: string) => {
-    if (window.confirm("Are you sure?")) {
-        // Unwraps the result so we only refresh on success
-        const resultAction = await dispatch(deleteExistingQuestion(id));
-        
-        if (deleteExistingQuestion.fulfilled.match(resultAction)) {
-            dispatch(fetchAllQuestions("admin_user"));
-        } else {
-            alert("Delete failed: " + resultAction.payload);
-        }
-    }
-};
+    const handleDeleteClick = () => {
+        /*
+        to do later
+        */
+    };
     return (
         <Table
             columns = {questionRecordsCols}
-            rows={questions || []}
+            rows = {mockMultipleQuestionRecords}
             onView = {handleViewClick}
             onEdit = {handleEditClick}
-            onDelete= {handleDeleteClick}
+            onDelete= {(x:string) => {}}
         />
     );
 }

@@ -8,13 +8,12 @@ export default function CreateAccount() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({username: '', email: '', password: '', confirmPassword: ''});
     const [hasTouched, setHasTouched] = useState({username: false, email: false, password: false, confirmPassword: false});
-    const [backendError, setBackendError] = useState(""); // To capture backend error
     const isFormIncomplete = !formData.username || !formData.email || !formData.password || !formData.confirmPassword;
 
     const handleCreateAccountClick = async () => {
         await createUserProfile(formData.username, formData.password, formData.email)
         navigate('/');
-    }
+    };
 
     const handleChange = (id, value) => {
         setFormData(prev => ({ ...prev, [id]: value }));
