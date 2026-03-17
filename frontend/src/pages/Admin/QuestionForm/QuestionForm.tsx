@@ -15,7 +15,7 @@ export default function QuestionForm() {
     const { value, stateStatus, serverError } = useSelector((state: any) => state.question);
     const [formData, setFormData] = useState({
         questionTitle: '',
-        questionTopic: '',
+        questionTopic: [] as string[],
         questionDifficulty: '',
         question: '',
         solution: ''
@@ -36,7 +36,7 @@ export default function QuestionForm() {
         || !formData.question
         || !formData.solution
         || !formData.questionTitle
-        || !formData.questionTopic;
+        || formData.questionTopic.length === 0;
 
     // Effect to fetch data if we are in Edit mode
     useEffect(() => {
@@ -54,7 +54,7 @@ export default function QuestionForm() {
         setFormData({
             // value.title is what the DB returns, questionTitle is what the form uses
             questionTitle: value.title || '', 
-            questionTopic: Array.isArray(value.topic_tags) ? value.topic_tags[0] : value.topic_tags || '',
+            questionTopic: Array.isArray(value.topic_tags) ? value.topic_tags : [],
             questionDifficulty: value.difficulty || '',
             question: value.description || '', // mapped from 'description' in DB
             solution: value.solution || ''
@@ -88,7 +88,7 @@ export default function QuestionForm() {
     const allErrorMessage = useMemo(() => {
         let msg = "";
         if (hasTouched.questionDifficulty) msg += getBlankFieldError("Question difficulty", formData.questionDifficulty);
-        if (hasTouched.questionTopic) msg += getBlankFieldError("Question topic", formData.questionTopic);
+        if (hasTouched.questionTopic && formData.questionTopic.length === 0) msg += "Please select at least one topic. ";
         if (hasTouched.questionTitle) msg += getBlankFieldError("Question title", formData.questionTitle);
         if (hasTouched.question) msg += getBlankFieldError("Question", formData.question);
         if (hasTouched.solution) msg += getBlankFieldError("Solution", formData.solution);
@@ -120,6 +120,17 @@ export default function QuestionForm() {
         }
     };
 
+    // Toggle handler for the checklist
+    const handleTopicToggle = (topic: string) => {
+        setFormData(prev => {
+            const currentTopics = prev.questionTopic;
+            const newTopics = currentTopics.includes(topic)
+                ? currentTopics.filter(t => t !== topic)
+                : [...currentTopics, topic];
+            return { ...prev, questionTopic: newTopics };
+        });
+        setHasTouched(prev => ({ ...prev, questionTopic: true }));
+    };
     return (
         <div>
             <Header />
@@ -129,7 +140,7 @@ export default function QuestionForm() {
                     display: 'flex',
                     flexDirection: 'row',
                     gap: '16px',
-                    alignItems: 'center',
+                    alignItems: 'start',
                     paddingLeft: '140px'
                 }}>
                     <TextField
@@ -138,12 +149,25 @@ export default function QuestionForm() {
                         value={formData.questionTitle}
                         onChange={(e) => handleChange('questionTitle', e.target.value)}
                     />
-                    <DropDown
-                        id="questionTopic"
-                        label="Question Topic"
-                        value={formData.questionTopic}
-                        onChange={(e) => handleChange('questionTopic', e.target.value)}
-                        items={convertEnumsToDropDownOption(QuestionTopic)} />
+                    {/* TOPIC CHECKLIST START */}
+                    <div className="flex flex-col">
+                        <label className="text-sm font-bold mb-1">Question Topics</label>
+                        <div className="border rounded-lg p-2 bg-white overflow-y-auto" style={{ height: '120px', width: '250px' }}>
+                            {Object.values(QuestionTopic).map((topic) => (
+                                <div key={topic} className="flex items-center gap-2 p-1 hover:bg-gray-50">
+                                    <input 
+                                        type="checkbox" 
+                                        id={`topic-${topic}`}
+                                        checked={formData.questionTopic.includes(topic)}
+                                        onChange={() => handleTopicToggle(topic)}
+                                    />
+                                    <label htmlFor={`topic-${topic}`} className="text-sm cursor-pointer">{topic}</label>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    {/* TOPIC CHECKLIST END */}
+                    
                     <DropDown
                         id="questionDifficulty"
                         label="Question Difficulty"
