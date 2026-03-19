@@ -4,7 +4,7 @@ CREATE TABLE questions (
     title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
     difficulty VARCHAR(50) NOT NULL,
-    topic_tags TEXT[], -- We keep this for now as per your preference
+    topic_tags TEXT[], 
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW()
 );
