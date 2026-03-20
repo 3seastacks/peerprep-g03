@@ -118,6 +118,9 @@ export default function QuestionForm() {
 
     const allErrorMessage = useMemo(() => {
         let msg = "";
+        if (serverError?.includes("Permission Denied") || serverError?.includes("access required")) {
+            return "User doesn't have access to edit/create/delete question.";
+        }
         if (hasTouched.questionDifficulty) msg += getBlankFieldError("Question difficulty", formData.questionDifficulty);
         if (hasTouched.questionTopic && formData.questionTopic.length === 0) msg += "Please select at least one topic. ";
         if (hasTouched.questionTitle) msg += getBlankFieldError("Question title", formData.questionTitle);
