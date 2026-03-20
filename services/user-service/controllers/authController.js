@@ -1,6 +1,8 @@
 const { createUser, getUserByUsername, getUserById } = require("../models/userModel");
 const { validateEmail, validatePassword, validateUsername } = require("../utils/validation");
 const { decryptEmail } = require("../models/userModel");
+// for superadmin to get all users and update roles
+const { getAllUsers, updateUserRole } = require("../models/userModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
@@ -135,5 +137,52 @@ exports.refreshToken = async (req, res) => {
       // Any other error (like DB query issues)
       return res.status(500).json({ error: "Internal server error", details: err.message });
     }
+  }
+};
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: "No token" });
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (decoded.role !== "SuperAdmin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const users = await getAllUsers();
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.updateUserRole = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: "No token" });
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // only superadmin can update roles
+    if (decoded.role !== "SuperAdmin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!["User", "Admin"].includes(role)) {
+      return res.status(400).json({ error: "Invalid role" });
+    }
+
+    const updatedUser = await updateUserRole(id, role);
+
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };

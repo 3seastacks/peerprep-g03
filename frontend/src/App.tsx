@@ -13,7 +13,7 @@ function App() {
       const response = await refreshJWToken();
 
       if (response.status === "200") {
-        localStorage.setItem("JWToken", response.data.JWToken);
+        localStorage.setItem("JWToken", response.JWToken);
       }
     };
 
