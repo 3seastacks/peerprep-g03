@@ -92,8 +92,7 @@ export async function getQuestions(username:string){
 
 export async function getGlobalTopicMap() {
     await new Promise((resolve) => setTimeout(resolve, 500));
-    
-    // Simple POST with no body (or you could switch back to GET)
+
     const response = await axios.get(`${API_URL}/topic-relations`);
     
     return response.data;
