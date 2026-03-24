@@ -114,32 +114,28 @@ const QuestionController = {
 
   getTopicRelations: async (req, res) => {
     try {
-        const { topics } = req.body; 
-
-        if (!Array.isArray(topics) || topics.length === 0) {
-            return res.status(400).json({ error: "Topics array is required." });
-        }
-
-        const rawData = await QuestionModel.getTopicCoOccurrence(topics);
-
-        // Initialize the response with null for all requested topics
+        const rawData = await QuestionModel.getAllTopicRelations();
         const result = {};
-        topics.forEach(t => {
-            result[t] = null;
-        });
 
-        // Fill the results. If 'Arrays' is paired with 'Hash Table', 
-        // it will now show up even if 'Hash Table' wasn't in the request.
         rawData.forEach(row => {
-            if (result[row.main_topic] === null) {
-                result[row.main_topic] = [row.related_topic];
-            } else {
-                result[row.main_topic].push(row.related_topic);
+            // Initialize the key if it doesn't exist
+            if (!result[row.main_topic]) {
+                result[row.main_topic] = null; 
+            }
+
+            // If there's a related topic, add it to the array
+            if (row.related_topic !== null) {
+                if (result[row.main_topic] === null) {
+                    result[row.main_topic] = [row.related_topic];
+                } else {
+                    result[row.main_topic].push(row.related_topic);
+                }
             }
         });
 
         res.status(200).json(result);
     } catch (error) {
+        console.error("Error in Global Topic Map:", error);
         res.status(500).json({ error: error.message });
     }
 }

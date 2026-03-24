@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const QuestionController = require('../controllers/question.controller');
 const { verifyAdmin } = require('../middleware/auth.middleware');
-
+router.get('/topic-relations', QuestionController.getTopicRelations);
 
 router.get('/', QuestionController.getQuestions);
 
@@ -20,5 +20,5 @@ router.put('/:id', verifyAdmin, QuestionController.updateQuestion);
 
 // Soft-delete a question (remains in DB for history)
 router.delete('/:id', verifyAdmin, QuestionController.deleteQuestion);
-router.post('/topic-relations', QuestionController.getTopicRelations);
+
 module.exports = router;
