@@ -187,6 +187,34 @@ async function findRandom(topic, difficulty, language) {
   
   return res.rows[0];
 }
+async function getAllTopicRelations() {
+    const query = `
+        WITH UniqueTopics AS (
+            -- Get every unique topic that exists in the DB
+            SELECT DISTINCT UNNEST(topic_tags) as topic 
+            FROM questions 
+            WHERE is_deleted = FALSE
+        ),
+        TopicPairs AS (
+            -- Get all actual pairings
+            SELECT t1.topic AS main, t2.topic AS related
+            FROM (SELECT id, UNNEST(topic_tags) as topic FROM questions WHERE is_deleted = FALSE) t1
+            JOIN (SELECT id, UNNEST(topic_tags) as topic FROM questions WHERE is_deleted = FALSE) t2 
+              ON t1.id = t2.id AND t1.topic != t2.topic
+        )
+        SELECT 
+            ut.topic AS main_topic, 
+            tp.related AS related_topic, 
+            COUNT(tp.related)::int as occurrence_count
+        FROM UniqueTopics ut
+        LEFT JOIN TopicPairs tp ON ut.topic = tp.main
+        GROUP BY ut.topic, tp.related
+        ORDER BY ut.topic ASC, occurrence_count DESC;
+    `;
+
+    const res = await pool.query(query);
+    return res.rows;
+}
 
 module.exports = {
   createQuestion,
@@ -194,5 +222,6 @@ module.exports = {
   getQuestionById,
   updateQuestion,
   deleteQuestion,
-  findRandom
+  findRandom,
+  getAllTopicRelations
 };

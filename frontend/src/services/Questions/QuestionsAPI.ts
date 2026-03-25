@@ -89,3 +89,10 @@ export async function getQuestions(username:string){
         data: { questions: response.data }
     };
 }
+
+export async function getGlobalTopicMap() {
+
+    const response = await axios.get(`${API_URL}/topic-relations`);
+    
+    return response.data;
+}

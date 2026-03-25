@@ -110,7 +110,37 @@ const QuestionController = {
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
-  }
+  },
+
+  getTopicRelations: async (req, res) => {
+    try {
+        const rawData = await QuestionModel.getAllTopicRelations();
+        const result = {};
+
+        rawData.forEach(row => {
+            // Initialize the key if it doesn't exist
+            if (!result[row.main_topic]) {
+                result[row.main_topic] = null; 
+            }
+
+            // If there's a related topic, add it to the array
+            if (row.related_topic !== null) {
+                if (result[row.main_topic] === null) {
+                    result[row.main_topic] = [row.related_topic];
+                } else {
+                    result[row.main_topic].push(row.related_topic);
+                }
+            }
+        });
+
+        res.status(200).json(result);
+    } catch (error) {
+        console.error("Error in Global Topic Map:", error);
+        res.status(500).json({ error: error.message });
+    }
+}
+
+
 };
 
 module.exports = QuestionController;
