@@ -81,7 +81,7 @@ export function Code() {
     // Create Yjs objects once for this mounted page
     if (!hasInitializedRef.current) {
       const ydoc = new Y.Doc()
-      const provider = new WebsocketProvider('ws://localhost:1234', roomId, ydoc)
+      const provider = new WebsocketProvider('ws://localhost:3002', roomId, ydoc)
       const yText = ydoc.getText('monaco')
 
       provider.on('status', (event: { status: string }) => {
