@@ -11,6 +11,9 @@ import { MonacoBinding } from 'y-monaco'
 import { WebsocketProvider } from 'y-websocket'
 import type { editor as MonacoEditorNS } from 'monaco-editor'
 
+import { leaveRoomSession, submitRoomSession } from '../../../../services/Collaboration'
+
+
 type RootState = {
   collaboration: {
     value: {
@@ -39,6 +42,8 @@ export function Code() {
 
   const partner = collabValue.partner ?? ''
   const roomId = collabValue.roomId ?? 'private-room'
+  console.log('Current roomId:', roomId) // Debug log for roomId
+  console.log('Current collab value:', collabValue) // Debug log for collaboration state
   const question = collabValue.question ?? ''
   const username = authValue.username ?? ''
 
@@ -57,17 +62,62 @@ export function Code() {
   const yTextRef = useRef<Y.Text | null>(null)
   const hasInitializedRef = useRef(false)
 
-  const handleQuitClick = () => {
-    dispatch(reset())
-    navigate('/start')
+  const getSharedDocument = () => {
+    return editorRef.current?.getValue() ?? '';
   }
 
-  const handleSubmitClick = () => {
-    const timestamp = new Date().toISOString()
-    postAttempt(timestamp, username, partner, question, 'Sample code')
-    dispatch(reset())
-    navigate('/start')
+  const cleanupCollabResources = () => {
+    bindingRef.current?.destroy()
+    bindingRef.current = null
+
+    providerRef.current?.destroy()
+    providerRef.current = null
+
+    ydocRef.current?.destroy()
+    ydocRef.current = null
+
+    yTextRef.current = null
+    hasInitializedRef.current = false
   }
+
+  const handleQuitClick = async () => {
+    try {
+      if (roomId && roomId !== 'private-room') {
+        await leaveRoomSession(username, roomId)
+      }
+    } catch (err) {
+      console.error('Failed to leave room session', err)
+    } finally {
+      cleanupCollabResources()
+      dispatch(reset())
+      navigate('/start')
+    }
+  }
+
+  const handleSubmitClick = async () => {
+    const timestamp = new Date().toISOString()
+    const sharedDocument = getSharedDocument()
+    
+    try {
+    if (roomId && roomId !== 'private-room') {
+      await submitRoomSession(username, roomId, sharedDocument) // to backend via my code
+    }
+      await postAttempt(timestamp, username, partner, question, sharedDocument) // via teammates's code
+    } catch (err) {
+      console.error('Failed to submit session', err)
+    } finally {
+      cleanupCollabResources()
+      dispatch(reset())
+      navigate('/start')
+
+      // Destroy Yjs connections and bindings immediately to prevent further edits after submission
+      // Delete room
+      // Remove redux dispatch(reset());
+      // Save attempt to collab database with status 'submitted'
+
+    }
+  }
+
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
@@ -81,7 +131,7 @@ export function Code() {
     // Create Yjs objects once for this mounted page
     if (!hasInitializedRef.current) {
       const ydoc = new Y.Doc()
-      const provider = new WebsocketProvider('ws://localhost:3002', roomId, ydoc)
+      const provider = new WebsocketProvider('ws://localhost:3004', roomId, ydoc)
       const yText = ydoc.getText('monaco')
 
       provider.on('status', (event: { status: string }) => {

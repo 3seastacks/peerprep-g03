@@ -11,4 +11,5 @@ export const store = configureStore({
       attempt: attemptReducer,
       collaboration: collaborationReducer
   },
+  devTools: true,
 });

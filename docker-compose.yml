@@ -139,15 +139,26 @@ services:
   #   networks:
   #     - app-network
 
-  collab-service:
-    build: ./services/collab-service
-    container_name: collab-service
+  collab-service-rooms:
+    build: ./services/collab-service-rooms
+    container_name: collab-service-rooms
     environment:
-      HOST: 0.0.0.0
       PORT: 3002
       JWT_SECRET: supersecretjwtkey
     ports:
       - "3002:3002"
+    networks:
+      - app-network
+
+  collab-service-websocket:
+    build: ./services/collab-service-websocket
+    container_name: collab-service-websocket
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3004
+      JWT_SECRET: supersecretjwtkey
+    ports:
+      - "3004:3004"
     networks:
       - app-network
   
@@ -172,13 +183,15 @@ services:
     depends_on:
       - user-service
       - question-service
-      - collab-service
+      - collab-service-rooms
       - match-service
+      - collab-service-websocket
     environment:
       VITE_USER_SERVICE_URL: http://user-service:3000
       VITE_QUESTION_SERVICE_URL: http://question-service:3001
-      VITE_COLLAB_SERVICE_URL: http://collab-service:3002
+      VITE_COLLAB_SERVICE_ROOMS_URL: http://collab-service-rooms:3002
       VITE_MATCH_SERVICE_URL: http://match-service:3003
+      VITE_COLLAB_SERVICE_WEBSOCKET_URL: http://collab-service-websocket:3004
 
     ports:
       - "5173:5173"

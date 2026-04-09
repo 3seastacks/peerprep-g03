@@ -4,12 +4,8 @@ COPY package*.json ./
 RUN npm install
 COPY . .
 
-EXPOSE 1234
+EXPOSE 3004
 
 ENV HOST=0.0.0.0
-ENV PORT=1234
+ENV PORT=3004
 CMD ["npx", "y-websocket"]
-
-##COPY . .
-##EXPOSE 3000
-##CMD ["npm", "start"]
