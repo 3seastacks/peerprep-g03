@@ -1,21 +1,10 @@
 {
   "dependencies": {
-    "@y/websocket-server": "^0.1.5",
-    "lodash": "^4.17.23",
-    "monaco-editor": "^0.55.1",
-    "redis": "^5.11.0",
-    "ws": "^8.19.0",
-    "y-monaco": "^0.1.6",
-    "y-webrtc": "^10.3.0",
-    "y-websocket": "2.1.0",
-    "yjs": "^13.6.29"
-  },
-  "devDependencies": {
-    "@types/lodash": "^4.17.24",
-    "@types/node": "^25.4.0",
-    "@types/ws": "^8.18.1"
-  },
-  "scripts": {
-    "server": "node node_modules/y-websocket/bin/server.js"
+    "@ai-sdk/google": "^3.0.58",
+    "@ai-sdk/react": "^3.0.148",
+    "@google/generative-ai": "^0.24.1",
+    "ai": "^6.0.146",
+    "dotenv": "^17.4.0",
+    "express-rate-limit": "^8.3.2"
   }
 }
