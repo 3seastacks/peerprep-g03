@@ -14,7 +14,7 @@ import { MonacoBinding } from 'y-monaco'
 import { WebsocketProvider } from 'y-websocket'
 import type { editor as MonacoEditorNS } from 'monaco-editor'
 
-import { leaveRoomSession, submitRoomSession } from '../../../../services/Collaboration'
+import { disconnectRoomSession, submitRoomSession } from '../../../../services/Collaboration'
 
 
 type RootState = {
@@ -171,13 +171,13 @@ export function Code() {
 
 const handleQuitClick = async () => {
     try {
-        // Only trigger the leave service if it's a real room session
+        // Only trigger the disconnect service if it's a real room session
         if (roomId && roomId !== 'private-room' && username) {
-            console.log(`User ${username} is leaving room ${roomId}`);
-            await leaveRoomSession(username, roomId);
+            console.log(`User ${username} is disconnecting from room ${roomId}`);
+            await disconnectRoomSession(username, roomId);
         }
     } catch (err) {
-        console.error('Failed to leave room session:', err);
+        console.error('Failed to disconnect room session:', err);
     } finally {
         // ALWAYS clean up resources and redirect, even if the API call fails
         cleanupCollabResources();
@@ -292,7 +292,7 @@ const handleQuitClick = async () => {
     const handleTabClose = () => {
         // Standard cleanup for the current user
         if (roomId && roomId !== 'private-room' && username) {
-            const url = `http://localhost:3002/api/room-session/leave`;
+            const url = `http://localhost:3002/api/room-session/disconnect`;
             
             // Using fetch with keepalive is the most reliable way to send a request 
             // during a page unload (better than standard axios here)
@@ -407,4 +407,3 @@ const handleQuitClick = async () => {
         </div>
     );
 }
-

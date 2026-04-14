@@ -41,3 +41,5 @@ SELECT * FROM sessions;
 SELECT * FROM session_users;
 SELECT * FROM submissions;
 ``` 
+
+Testing rejoin

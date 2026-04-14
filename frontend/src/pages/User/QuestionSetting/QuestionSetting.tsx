@@ -108,7 +108,7 @@ export default function QuestionSetting() {
                     username: authValue.username,
                     role: authValue.role,
                     roomId: session.roomId,
-                    partner: collabValue.partner,
+                    partner: null,
                     question: questionData.description,
                     })
                 )

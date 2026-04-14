@@ -8,6 +8,7 @@ export function createRoomSessionRoutes(roomSessionController) {
 
   router.post('/start', roomSessionController.startSession);
   router.post('/reconnect', roomSessionController.reconnectSession);
+  router.post('/disconnect', roomSessionController.disconnectSession);
   router.post('/leave', roomSessionController.leaveSession);
   router.post('/submit', roomSessionController.submitSession);
   router.get('/:roomId', roomSessionController.getSession);

@@ -5,7 +5,8 @@ import { useSelector, useDispatch } from 'react-redux';
 
 import { initialiseCollab, reset, setRoomId } from '../../../features/User/Collaboration/collaborationSlice';
 import { deleteMatch, pollMatchStatus, getPartner } from '../../../services/Collaboration';
-import { startRoomSession } from '../../../services/Collaboration';
+import { startRoomSession, reconnectRoomSession, leaveRoomSession } from '../../../services/Collaboration';
+import { Room } from '@mui/icons-material';
 
 const statusMessage = {
     UNEXPECTED_ERROR: () => 'Unexpected Error. Click "Back".',
@@ -82,7 +83,7 @@ export default function WaitingRoom() {
                 const checkSession = await startRoomSession(username, "REJOIN_CHECK");
                 
                 if (checkSession && checkSession.roomId && checkSession.status === 'active') {
-                    const isLockLifted = !!checkSession.hasSubmitted || !!checkSession.isStale;
+                    const isLockLifted = checkSession.userStatus === 'submitted' || !!checkSession.isStale;
                     setHasExistingSession(true);
                     setHasUserSubmittedExisting(isLockLifted);
 
@@ -94,10 +95,10 @@ export default function WaitingRoom() {
 
                     if (!isLockLifted) {
                         setIsMatched(true);
-                        setPartnerStatus(statusMessage.EXISTING_SESSION(checkSession.partner || 'your partner'));
+                        setPartnerStatus(statusMessage.EXISTING_SESSION(checkSession.partner || 'Missing Partner Info'));
                     } else {
                         // Soft Lock: DO NOT call matchmaking automatically
-                        setPartnerStatus(statusMessage.OPTIONAL_REJOIN(checkSession.partner || 'your partner'));
+                        setPartnerStatus(statusMessage.OPTIONAL_REJOIN(checkSession.partner || 'Missing Partner Info'));
                     }
                 } else {
                     // No existing session: Proceed to normal matchmaking
@@ -130,11 +131,11 @@ export default function WaitingRoom() {
                         JSON.stringify({
                         username: authValue.username,
                         role: authValue.role,
-                        roomId: collabValue.roomId,
+                        roomId: session.roomId,
                         partner: collabValue.partner,
                         question: collabValue.question,
                         })
-                    )
+                    ) 
 
                     const savedSession = localStorage.getItem('collabSession');
                     console.log('Saved session in localStorage:', savedSession);
@@ -151,13 +152,107 @@ export default function WaitingRoom() {
         }
     };
 
+    const handleRejoinClick = async () => {
 
-    const handleIgnoreSession = () => {
-        setHasExistingSession(false);
-        setHasUserSubmittedExisting(false);
-        // --- ENHANCEMENT: Trigger matchmaking ONLY after user choice ---
-        if (abortControllerRef.current) {
-            runMatchmakingSequence(abortControllerRef.current.signal);
+        //existing room
+        try {
+            let finalRoomId = collabValue.roomId;
+            console.log('Attempting to rejoin session with roomId:', finalRoomId, 'partnerstatus: ', partnerStatus);
+            
+            if (!finalRoomId) {
+                // No existing room
+                console.log('No active session found, attempting to start new session with matchId:', collabValue.matchId);
+                
+                if (partnerStatus.includes("Partner found")) {
+                    console.warn('Partner found but no active session. This may indicate a stale session or an error in session management.');
+                }
+
+                const matchId = collabValue.matchId;
+                if (!matchId) {
+                    console.error('No matchId available for reconnect');
+                    return;
+                }
+                
+                handleContinueClick();
+                return;
+
+                //const matchId = collabValue.matchId;
+                if (matchId) {
+                    const session = await reconnectRoomSession(username, matchId);
+                    finalRoomId = session.roomId;
+
+                    
+                    dispatch(setRoomId(session.roomId));
+                    localStorage.setItem(
+                        'collabSession',
+                        JSON.stringify({
+                        username: authValue.username,
+                        role: authValue.role,
+                        roomId: session.roomId,
+                        partner: collabValue.partner,
+                        question: collabValue.question,
+                        })
+                    ) 
+
+                    const savedSession = localStorage.getItem('collabSession');
+                    console.log('Saved session in localStorage:', savedSession);
+
+                }
+            } 
+            
+            // if (finalRoomId) {
+
+            const session = await reconnectRoomSession(username, finalRoomId);
+            finalRoomId = session.roomId;
+            console.log('Existing session found with roomId:', finalRoomId);
+
+            dispatch(initialiseCollab({
+                roomId: finalRoomId,
+                partner: session.partner ?? collabValue.partner,
+            }));
+
+            localStorage.setItem(
+                'collabSession',
+                JSON.stringify({
+                    username: authValue.username,
+                    role: authValue.role,
+                    roomId: finalRoomId,
+                    partner: session.partner ?? collabValue.partner,
+                    question: collabValue.question,
+                })
+            );
+
+            navigate(`/collaboration`);
+        } catch (err) {
+            console.error('Failed to start room session', err);
+        }
+    };
+
+
+    const handleIgnoreSession = async () => {
+        try {
+            if (collabValue.roomId) {
+                await leaveRoomSession(username, collabValue.roomId);
+            }
+        } catch (err) {
+            console.error('Failed to leave existing session', err);
+        } finally {
+            setHasExistingSession(false);
+            setHasUserSubmittedExisting(false);
+            setIsMatched(false);
+
+            dispatch(initialiseCollab({
+                roomId: null,
+                partner: null,
+                matchId: null,
+                isStale: false,
+            }));
+
+            localStorage.removeItem('collabSession');
+
+            if (abortControllerRef.current) {
+                runMatchmakingSequence(abortControllerRef.current.signal);
+            }
         }
     };
 
@@ -195,7 +290,7 @@ export default function WaitingRoom() {
                              </p>
                              {hasUserSubmittedExisting && (
                                 <div className="mt-4 flex gap-2 justify-center">
-                                    <Button label="Rejoin Previous" variant="outlined" onClick={handleContinueClick} />
+                                    <Button label="Rejoin Previous" variant="outlined" onClick={handleRejoinClick} />
                                     <Button label="Ignore & Find New" onClick={handleIgnoreSession} />
                                 </div>
                              )}
