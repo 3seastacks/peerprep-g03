@@ -7,7 +7,6 @@ import { initialise, reset, setRoomId } from '../../../features/User/Collaborati
 import { deleteMatch, pollMatchStatus, getPartner } from '../../../services/Collaboration';
 import { startRoomSession } from '../../../services/Collaboration';
 
-
 const statusMessage = {
     UNEXPECTED_ERROR: () => 'Unexpected Error. Click "Back".',
     FINDING_PARTNER: () => 'Waiting for partner.',
@@ -29,107 +28,118 @@ export default function WaitingRoom() {
     const [hasExistingSession, setHasExistingSession] = useState(false);
     const [hasUserSubmittedExisting, setHasUserSubmittedExisting] = useState(false);
 
-    const {
-        value: collabValue,
-    } = useSelector((state: any) => state.collaboration);
-
-    const {
-        value: authValue,
-    } = useSelector((state: any) => state.authentication);
+    const { value: collabValue } = useSelector((state: any) => state.collaboration);
+    const { value: authValue } = useSelector((state: any) => state.authentication);
 
     const questionTopic: string = collabValue.questionTopic;
     const questionDifficulty: string = collabValue.questionDifficulty;
     const programmingLanguage: string = collabValue.programmingLanguage;
     const username: string = authValue.username;
 
+    // --- ENHANCEMENT: Standalone Matchmaking Logic ---
+    const runMatchmakingSequence = async (signal: AbortSignal) => {
+        try {
+            setPartnerStatus(statusMessage.FINDING_PARTNER());
+            await getPartner(username, questionTopic, questionDifficulty, programmingLanguage);
+
+            await new Promise((resolve, reject) => {
+                const timer = setTimeout(resolve, 5000);
+                signal.addEventListener('abort', () => {
+                    clearTimeout(timer);
+                    reject(new DOMException("Aborted", "AbortError"));
+                });
+            });
+
+            const result = await pollMatchStatus(username, signal);
+            if (result.status === "matched") {
+                dispatch(initialise({ partner: result.partnerId, matchId: result.matchId }));
+                setPartnerStatus(statusMessage.PARTNER_FOUND(result.partnerId));
+                setIsMatched(true);
+            } else if (result.status === "expired") {
+                setPartnerStatus(statusMessage.NO_PARTNER_FOUND());
+                setIsMatched(true);
+            }
+        } catch (err: any) {
+            if (err.name !== 'AbortError') setPartnerStatus(statusMessage.NO_PARTNER_FOUND());
+        }
+    };
+
     useEffect(() => {
         const handleTabClose = () => {
             navigator.sendBeacon(`http://localhost:3003/api/match/exit-tab/${username}`);
         };
         window.addEventListener('pagehide', handleTabClose);
-        return () => {
-            window.removeEventListener('pagehide', handleTabClose);
-        };
+        return () => window.removeEventListener('pagehide', handleTabClose);
     }, [username]);
 
     useEffect(() => {
         const abortController = new AbortController();
         abortControllerRef.current = abortController;
 
-        const startSequence = async () => {
+        const checkSessionAndInitialize = async () => {
             try {
-                // 1. ENHANCEMENT: Check for existing collaboration rooms
+                // 1. GATEKEEPER: Check for existing rooms
                 const checkSession = await startRoomSession(username, "REJOIN_CHECK");
                 
                 if (checkSession && checkSession.roomId && checkSession.status === 'active') {
-                    // Lock is optional if user submitted OR if session is stale (>30 mins)
                     const isLockLifted = !!checkSession.hasSubmitted || !!checkSession.isStale;
-
                     setHasExistingSession(true);
                     setHasUserSubmittedExisting(isLockLifted);
 
                     dispatch(initialise({
                         roomId: checkSession.roomId,
                         partner: checkSession.partner,
-                        isStale: checkSession.isStale // Optional: store for UI context
+                        isStale: checkSession.isStale 
                     }));
 
-                    if (isLockLifted) {
-                        // OPTIONAL: Inform them but let matchmaking continue in background
-                        setPartnerStatus(statusMessage.OPTIONAL_REJOIN(checkSession.partner || 'your partner'));
-                    } else {
-                        // MANDATORY: Block matchmaking and exit sequence
+                    if (!isLockLifted) {
                         setIsMatched(true);
                         setPartnerStatus(statusMessage.EXISTING_SESSION(checkSession.partner || 'your partner'));
-                        return; 
+                    } else {
+                        // Soft Lock: DO NOT call matchmaking automatically
+                        setPartnerStatus(statusMessage.OPTIONAL_REJOIN(checkSession.partner || 'your partner'));
                     }
-                }
-
-                // 2. Normal Matchmaking Sequence
-                setPartnerStatus(statusMessage.FINDING_PARTNER());
-                await getPartner(username, questionTopic, questionDifficulty, programmingLanguage);
-
-                // Delay for 5 seconds
-                await new Promise((resolve, reject) => {
-                    const timer = setTimeout(resolve, 5000);
-                    abortController.signal.addEventListener('abort', () => {
-                        clearTimeout(timer);
-                        reject(new DOMException("Aborted", "AbortError"));
-                    });
-                });
-
-                // Start Polling
-                const result = await pollMatchStatus(username, abortController.signal);
-
-                if (result.status === "matched") {
-                    dispatch(initialise({
-                        partner: result.partnerId,
-                        matchId: result.matchId,
-                    }));
-                    setPartnerStatus(statusMessage.PARTNER_FOUND(result.partnerId));
-                    setIsMatched(true);
-                }
-
-                if (result.status === "expired") {
-                    setPartnerStatus(statusMessage.NO_PARTNER_FOUND());
-                }
-                
-            } catch (err: any) {
-                if (err.name === 'AbortError') {
-                    console.log("Sequence cancelled.");
                 } else {
-                    setPartnerStatus(statusMessage.NO_PARTNER_FOUND());
+                    // No existing session: Proceed to normal matchmaking
+                    runMatchmakingSequence(abortController.signal);
                 }
+            } catch (err) {
+                runMatchmakingSequence(abortController.signal);
             }
         };
 
-        if (username) startSequence();
+        if (username) checkSessionAndInitialize();
+        return () => abortController.abort();
+    }, [username]); // Dependencies trimmed to avoid re-triggering on collabValue changes
 
-        return () => {
-            abortController.abort();
-        };
-    }, [dispatch, username, questionTopic, questionDifficulty, programmingLanguage]);
+    const handleContinueClick = async () => {
+        try {
+            let finalRoomId = collabValue.roomId;
+            if (!finalRoomId || partnerStatus.includes("Partner found")) {
+                const matchId = collabValue.matchId;
+                if (matchId) {
+                    const session = await startRoomSession(username, matchId);
+                    finalRoomId = session.roomId;
+                }
+            }
+            if (finalRoomId) {
+                dispatch(setRoomId(finalRoomId));
+                await deleteMatch(username);
+                navigate(`/collaboration`);
+            }
+        } catch (err) {
+            console.error('Failed to start room session', err);
+        }
+    };
 
+    const handleIgnoreSession = () => {
+        setHasExistingSession(false);
+        setHasUserSubmittedExisting(false);
+        // --- ENHANCEMENT: Trigger matchmaking ONLY after user choice ---
+        if (abortControllerRef.current) {
+            runMatchmakingSequence(abortControllerRef.current.signal);
+        }
+    };
 
     const handleBackClick = async () => {
         abortControllerRef.current?.abort();
@@ -139,25 +149,6 @@ export default function WaitingRoom() {
             navigate('/start');
         } catch (err) {
             console.error("Failed to cancel match", err);
-        }
-    };
-
-    const handleContinueClick = async () => {
-        try {
-            let finalRoomId = collabValue.roomId;
-
-            if (!hasExistingSession || (partnerStatus.includes("Partner found"))) {
-                const matchId = collabValue.matchId;
-                if (!matchId) return;
-                const session = await startRoomSession(username, matchId);
-                finalRoomId = session.roomId;
-            }
-
-            dispatch(setRoomId(finalRoomId));
-            await deleteMatch(username);
-            navigate(`/collaboration`);
-        } catch (err) {
-            console.error('Failed to start room session', err);
         }
     };
 
@@ -185,7 +176,7 @@ export default function WaitingRoom() {
                              {hasUserSubmittedExisting && (
                                 <div className="mt-4 flex gap-2 justify-center">
                                     <Button label="Rejoin Previous" variant="outlined" onClick={handleContinueClick} />
-                                    <Button label="Ignore & Find New" onClick={() => setHasExistingSession(false)} />
+                                    <Button label="Ignore & Find New" onClick={handleIgnoreSession} />
                                 </div>
                              )}
                         </div>
@@ -203,11 +194,11 @@ export default function WaitingRoom() {
                     
                     <div className="flex justify-center p-4 gap-x-15">
                         <Button label="Back" onClick={handleBackClick} />
-                        {!hasUserSubmittedExisting && (
+                        {(!hasUserSubmittedExisting || !hasExistingSession) && (
                             <Button 
                                 label={hasExistingSession ? "Rejoin & Finish" : "Continue"} 
                                 onClick={handleContinueClick}
-                                disabled={partnerStatus === statusMessage.UNEXPECTED_ERROR() || partnerStatus === statusMessage.FINDING_PARTNER()}
+                                disabled={!isMatched || partnerStatus === statusMessage.UNEXPECTED_ERROR() || partnerStatus === statusMessage.FINDING_PARTNER()}
                             />
                         )}
                     </div>
