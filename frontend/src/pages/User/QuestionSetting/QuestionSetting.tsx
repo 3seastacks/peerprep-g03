@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header, PageTitle, DropDown, Button, ErrorMessage, convertEnumsToDropDownOption, Dialog } from '../../../components';
 import { getBlankFieldError } from '../../../commons'
-import { useDispatch } from 'react-redux';
-import { initialise } from '../../../features/User/Collaboration/collaborationSlice';
+import { useSelector, useDispatch } from 'react-redux';
+import { initialise, setRoomId } from '../../../features/User/Collaboration/collaborationSlice';
 import { QuestionTopic, ProgrammingLanguage, QuestionDifficultyMatching } from '../../../models';
 import { getQuestionUser } from '../../../services/Questions';
+import { startRoomSession } from '../../../services/Collaboration';
+
 
 export default function QuestionSetting() {
     const navigate = useNavigate();
@@ -24,6 +26,19 @@ export default function QuestionSetting() {
     const [isDialogOpen, setIsDialogOpen] = useState(false)
 
     const isFormIncomplete = !formData.questionDifficulty || !formData.programmingLanguage || !formData.questionTopic;
+
+
+    const {
+        value: collabValue,
+        stateStatus: collabStatus
+    } = useSelector((state) => state.collaboration);
+
+    const {
+        value: authValue,
+        stateStatus: authStatus
+    } = useSelector((state) => state.authentication);
+
+    const username: string = authValue.username
 
     const saveSetting = async () => {
         try {
@@ -69,10 +84,27 @@ export default function QuestionSetting() {
         setHasTouched(prev => ({ ...prev, [id]: true }));
     };
 
+    const generateSoloId = () => {
+        return `solo-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+    };
+
     const handleJustMeClick = async () => {
         const success = await saveSetting();
         if (success) {
-            navigate(`/collaboration`);
+            try {
+                // not redux
+                const matchId = generateSoloId();
+    
+                // TODO: Create room and set partner in state.collaboration or via a separate room
+                const session = await startRoomSession(username, matchId);
+    
+                dispatch(setRoomId(session.roomId));
+    
+                navigate(`/collaboration`);
+    
+            } catch (err) {
+                console.error('Failed to start room session', err);
+            }
         }
     };
 
