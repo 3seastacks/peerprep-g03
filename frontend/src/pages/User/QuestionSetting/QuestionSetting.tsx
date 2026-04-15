@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header, PageTitle, DropDown, Button, ErrorMessage, convertEnumsToDropDownOption, Dialog } from '../../../components';
 import { getBlankFieldError } from '../../../commons'
-import { useDispatch } from 'react-redux';
-import { initialise } from '../../../features/User/Collaboration/collaborationSlice';
+import { useSelector, useDispatch } from 'react-redux';
+import { initialiseCollab, setRoomId } from '../../../features/User/Collaboration/collaborationSlice';
 import { QuestionTopic, ProgrammingLanguage, QuestionDifficultyMatching } from '../../../models';
 import { getQuestionUser } from '../../../services/Questions';
-import { startRoomSession } from 'services/Collaboration';
+import { startRoomSession } from '../../../services/Collaboration';
+
+
 export default function QuestionSetting() {
     const navigate = useNavigate();
     const dispatch = useDispatch();
@@ -27,11 +29,24 @@ export default function QuestionSetting() {
 
     const isFormIncomplete = !formData.questionDifficulty || !formData.programmingLanguage || !formData.questionTopic;
 
+
+    const {
+        value: collabValue,
+        stateStatus: collabStatus
+    } = useSelector((state) => state.collaboration);
+
+    const {
+        value: authValue,
+        stateStatus: authStatus
+    } = useSelector((state) => state.authentication);
+
+    const username: string = authValue.username
+
     const saveSetting = async () => {
         try {
             setIsLoading(true);
             const questionData = await getQuestionUser(formData.questionTopic, formData.questionDifficulty, formData.programmingLanguage)
-            dispatch(initialise({
+            dispatch(initialiseCollab({
                     questionTopic: formData.questionTopic,
                     questionDifficulty: formData.questionDifficulty,
                     programmingLanguage: formData.programmingLanguage,
@@ -39,14 +54,14 @@ export default function QuestionSetting() {
                     question: questionData.description,
                     }))
             setIsLoading(false);
-            return true;
+            return questionData;
         } catch (e) {
             setIsLoading(false);
             if (e.response && e.response.status === 404) {
                   setIsDialogOpen(true)
             }
             console.error("Fetch failed:", e);
-            return false;
+            return null;
         }
     }
 
@@ -71,16 +86,47 @@ export default function QuestionSetting() {
         setHasTouched(prev => ({ ...prev, [id]: true }));
     };
 
+    const generateSoloId = () => {
+        return `solo-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+    };
+
     const handleJustMeClick = async () => {
-        const success = await saveSetting();
-        if (success) {
-            navigate(`/collaboration`);
+        const questionData = await saveSetting();
+        if (questionData) {
+            try {
+                // not redux
+                const matchId = generateSoloId();
+    
+                // TODO: Create room and set partner in state.collaboration or via a separate room
+                const session = await startRoomSession(username, matchId);            
+    
+                dispatch(setRoomId(session.roomId));
+
+                localStorage.setItem(
+                    'collabSession',
+                    JSON.stringify({
+                    username: authValue.username,
+                    role: authValue.role,
+                    roomId: session.roomId,
+                    partner: null,
+                    question: questionData.description,
+                    })
+                )
+
+                const savedSession = localStorage.getItem('collabSession');
+                console.log('Saved session in localStorage:', savedSession);
+    
+                navigate(`/collaboration`);
+    
+            } catch (err) {
+                console.error('Failed to start room session', err);
+            }
         }
     };
 
     const handleFindFriendClick = async () => {
-        const success = await saveSetting();
-        if (success) {
+        const questionData = await saveSetting();
+        if (questionData) { 
             navigate(`/waiting-room`);
         }
     };
